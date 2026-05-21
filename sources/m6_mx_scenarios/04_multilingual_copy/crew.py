@@ -4,8 +4,16 @@
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Literal
-from crewai import Agent, Task, Crew, Process
+from typing import List, Literal
+from crewai import Agent, Task
+import sys
+from pathlib import Path
+
+SCENARIOS_ROOT = Path(__file__).resolve().parent.parent
+if str(SCENARIOS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCENARIOS_ROOT))
+
+from scenario_common import configure_runtime, create_hierarchical_crew, require_openai_key
 
 
 TargetLang = Literal["en", "ja", "zh-CN"]
@@ -46,7 +54,7 @@ en_copywriter = Agent(
 ja_copywriter = Agent(
     role="Japanese Copywriter",
     goal="한국어 카피를 일본 시장에 적합한 일본어 카피로 재창작한다",
-    backstool="일본 광고 7년차. 경어 단계와 문화적 절제미 표현에 특화.",
+    backstory="일본 광고 7년차. 경어 단계와 문화적 절제미 표현에 특화.",
     allow_delegation=False,
 )
 zh_copywriter = Agent(
@@ -73,16 +81,18 @@ copy_task = Task(
 )
 
 
-copy_crew = Crew(
-    agents=[copy_manager, en_copywriter, ja_copywriter, zh_copywriter],
+copy_crew = create_hierarchical_crew(
+    manager=copy_manager,
+    workers=[en_copywriter, ja_copywriter, zh_copywriter],
     tasks=[copy_task],
-    process=Process.hierarchical,
     manager_llm="gpt-4o",
-    verbose=True,
 )
 
 
 if __name__ == "__main__":
+    configure_runtime()
+    if not require_openai_key():
+        sys.exit(1)
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-copy", required=True, help="한국어 원본 카피")

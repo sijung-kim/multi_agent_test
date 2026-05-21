@@ -23,6 +23,8 @@
 3. Pydantic 스키마 (`schemas.py`) 의 필드를 산출물 형식에 맞게 조정
 4. `sample_input.txt` 를 본인 데이터로 교체
 
+본 예시 답안은 각 시나리오 폴더에 바로 실행 가능한 `sample_input.txt`와 `README.md`를 포함한다. 실행 전 `OPENAI_API_KEY`를 `sources/.env` 또는 현재 셸 환경변수로 설정한다.
+
 ## 시나리오별 폴더
 
 각 폴더의 `README.md` 에 본인 적용 가이드가 있다.
