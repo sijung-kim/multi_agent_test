@@ -1,12 +1,20 @@
 """Scenario 05 — Customer Care 시나리오 자동화.
 
 고객 문의를 받아 Intent 분류 → Resolver 응답 작성 → Escalation 판정의 3단계로 처리한다.
-Process.sequential 패턴 (분기가 거의 없으므로 직선적 의존이 적합).
+README의 M6 시나리오 공통 패턴에 맞춰 Process.hierarchical 로 조립한다.
 """
 
 from pydantic import BaseModel, Field
 from typing import List, Literal
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
+import sys
+from pathlib import Path
+
+SCENARIOS_ROOT = Path(__file__).resolve().parent.parent
+if str(SCENARIOS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCENARIOS_ROOT))
+
+from scenario_common import configure_runtime, create_hierarchical_crew, require_openai_key
 
 
 IntentType = Literal[
@@ -45,6 +53,14 @@ class CustomerCareCase(BaseModel):
 
 
 # === Agents ===
+care_manager = Agent(
+    role="Customer Care Manager",
+    goal="고객 문의를 3개 Worker에 분배하고 최종 CustomerCareCase를 산출한다",
+    backstory="CS 운영 자동화 7년차. 문의 유형별 응답 품질과 에스컬레이션 기준을 통합 관리.",
+    allow_delegation=True,
+    verbose=True,
+)
+
 intent_classifier = Agent(
     role="Intent Classifier",
     goal="고객 메시지에서 의도를 6종 중 1개로 분류하고 엔티티를 추출한다",
@@ -67,59 +83,45 @@ escalator = Agent(
 )
 
 
-# === Tasks (Sequential) ===
-classify_task = Task(
+care_task = Task(
     description=(
         "고객 메시지: {message}\n"
         "customer_id: {customer_id}\n"
-        "IntentClassification 객체로 분류·엔티티 추출 결과를 산출."
+        "case_id={case_id}\n"
+        "\n"
+        "1) Intent Classifier Worker에게 의도 분류와 엔티티 추출을 위임한다.\n"
+        "2) Resolver Worker에게 응답 초안과 후속 조치 작성을 위임한다.\n"
+        "3) Escalation Judge Worker에게 에스컬레이션 필요 여부 판단을 위임한다.\n"
+        "4) 세 결과를 CustomerCareCase 객체로 통합한다."
     ),
-    expected_output="IntentClassification 객체",
-    output_pydantic=IntentClassification,
-    agent=intent_classifier,
-)
-
-resolve_task = Task(
-    description=(
-        "분류된 intent를 받아 응답 초안과 후속 조치를 작성한다. "
-        "ResolverResponse 객체로 산출."
-    ),
-    expected_output="ResolverResponse 객체",
-    output_pydantic=ResolverResponse,
-    agent=resolver,
-    context=[classify_task],
-)
-
-escalation_task = Task(
-    description=(
-        "응답 초안과 intent를 검토하여 에스컬레이션 필요 여부와 대상 팀을 결정한다. "
-        "EscalationDecision 객체로 산출."
-    ),
-    expected_output="EscalationDecision 객체",
-    output_pydantic=EscalationDecision,
-    agent=escalator,
-    context=[classify_task, resolve_task],
+    expected_output="CustomerCareCase 객체",
+    output_pydantic=CustomerCareCase,
+    agent=care_manager,
 )
 
 
-# === Crew (Sequential 패턴) ===
-care_crew = Crew(
-    agents=[intent_classifier, resolver, escalator],
-    tasks=[classify_task, resolve_task, escalation_task],
-    process=Process.sequential,   # ★ 직선적 의존이라 sequential 채택
-    verbose=True,
+care_crew = create_hierarchical_crew(
+    manager=care_manager,
+    workers=[intent_classifier, resolver, escalator],
+    tasks=[care_task],
+    manager_llm="gpt-4o",
 )
 
 
 if __name__ == "__main__":
+    configure_runtime()
+    if not require_openai_key():
+        sys.exit(1)
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--message", required=True, help="고객 문의 메시지")
     parser.add_argument("--customer-id", required=True)
+    parser.add_argument("--case-id", required=True)
     args = parser.parse_args()
 
     result = care_crew.kickoff(inputs={
         "message": args.message,
         "customer_id": args.customer_id,
+        "case_id": args.case_id,
     })
     print(result)

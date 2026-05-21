@@ -5,9 +5,16 @@
 """
 
 from pydantic import BaseModel, Field
-from typing import List
-from crewai import Agent, Task, Crew, Process
-from crewai_tools import tool
+from typing import List, Literal
+from crewai import Agent, Task
+import sys
+from pathlib import Path
+
+SCENARIOS_ROOT = Path(__file__).resolve().parent.parent
+if str(SCENARIOS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCENARIOS_ROOT))
+
+from scenario_common import configure_runtime, create_hierarchical_crew, require_openai_key, tool
 
 
 # === @tool ===
@@ -35,7 +42,7 @@ class WikiQAAnswer(BaseModel):
     question: str
     answer: str = Field(min_length=50)
     citations: List[Citation]
-    confidence: Field = Field(default="medium")
+    confidence: Literal["high", "medium", "low"] = Field(default="medium")
 
 
 # === Manager ===
@@ -67,7 +74,7 @@ synthesis_worker = Agent(
 citation_worker = Agent(
     role="Citation Verifier",
     goal="답변의 각 주장에 출처 인용이 명시되어 있는지 검증하고 누락 시 보강한다",
-    backstool="학술 인용 검증 4년차. 환각 패턴(없는 인용)을 즉시 식별.",
+    backstory="학술 인용 검증 4년차. 환각 패턴(없는 인용)을 즉시 식별.",
     allow_delegation=False,
     tools=[doc_fetch],
 )
@@ -88,16 +95,18 @@ qa_task = Task(
 )
 
 
-wiki_qa_crew = Crew(
-    agents=[qa_manager, retrieval_worker, synthesis_worker, citation_worker],
+wiki_qa_crew = create_hierarchical_crew(
+    manager=qa_manager,
+    workers=[retrieval_worker, synthesis_worker, citation_worker],
     tasks=[qa_task],
-    process=Process.hierarchical,
     manager_llm="gpt-4o",
-    verbose=True,
 )
 
 
 if __name__ == "__main__":
+    configure_runtime()
+    if not require_openai_key():
+        sys.exit(1)
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--question", required=True)

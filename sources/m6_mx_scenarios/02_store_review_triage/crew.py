@@ -5,7 +5,20 @@
 
 from pydantic import BaseModel, Field
 from typing import List, Literal
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
+import sys
+from pathlib import Path
+
+SCENARIOS_ROOT = Path(__file__).resolve().parent.parent
+if str(SCENARIOS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCENARIOS_ROOT))
+
+from scenario_common import (
+    configure_runtime,
+    create_hierarchical_crew,
+    require_openai_key,
+    text_file_reader,
+)
 
 
 # === 출력 스키마 ===
@@ -43,6 +56,7 @@ severity_worker = Agent(
     goal="리뷰의 심각도를 P1(긴급)~P3(낮음)으로 분류한다",
     backstory="CS 운영 6년차. 데이터 손실·결제 실패 등 P1 패턴을 즉시 식별.",
     allow_delegation=False,
+    tools=[text_file_reader],
 )
 
 category_worker = Agent(
@@ -50,6 +64,7 @@ category_worker = Agent(
     goal="리뷰를 Bug·Feature Request·UX·Performance·Other 5종으로 분류한다",
     backstory="VOC 분석 5년차. 자유 텍스트를 표준 카테고리로 정규화하는 데 특화.",
     allow_delegation=False,
+    tools=[text_file_reader],
 )
 
 sentiment_worker = Agent(
@@ -57,13 +72,14 @@ sentiment_worker = Agent(
     goal="리뷰의 감성을 positive·neutral·negative·very_negative 4단계로 분류한다",
     backstory="NLP 분석 4년차. 한국어 비꼼·반어법까지 감지하는 모델 운영 경험.",
     allow_delegation=False,
+    tools=[text_file_reader],
 )
 
 
 # === Task ===
 triage_task = Task(
     description=(
-        "{reviews_path} 의 리뷰 묶음을 읽고 3개 Worker에 분배한다. "
+        "text_file_reader 로 {reviews_path} 의 리뷰 묶음을 읽고 3개 Worker에 분배한다. "
         "각 리뷰별로 severity·category·sentiment를 결합하여 ReviewItem 을 산출하고, "
         "전체를 StoreReviewTriageReport 로 통합한다."
     ),
@@ -73,17 +89,18 @@ triage_task = Task(
 )
 
 
-# === Crew ===
-store_triage_crew = Crew(
-    agents=[triage_manager, severity_worker, category_worker, sentiment_worker],
+store_triage_crew = create_hierarchical_crew(
+    manager=triage_manager,
+    workers=[severity_worker, category_worker, sentiment_worker],
     tasks=[triage_task],
-    process=Process.hierarchical,
     manager_llm="gpt-4o",
-    verbose=True,
 )
 
 
 if __name__ == "__main__":
+    configure_runtime()
+    if not require_openai_key():
+        sys.exit(1)
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--reviews", required=True)
