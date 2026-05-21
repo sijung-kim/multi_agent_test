@@ -1,0 +1,58 @@
+diff --git a/ui/dark_mode/ToggleView.kt b/ui/dark_mode/ToggleView.kt
+index a1b2c3d..e4f5g6h 100644
+--- a/ui/dark_mode/ToggleView.kt
++++ b/ui/dark_mode/ToggleView.kt
+@@ -42,6 +42,12 @@ class ToggleView : View {
+-    val accent = Color.parseColor("#FFAA00")
++    val accent = if (isNightMode) {
++        Color.parseColor("#FFD54F")  // 다크 모드 새 토큰
++    } else {
++        Color.parseColor("#FFAA00")
++    }
+     setBackgroundTintList(ColorStateList.valueOf(accent))
+}
+
+diff --git a/perf/RenderQueue.java b/perf/RenderQueue.java
+index 11aa22..33bb44 100644
+--- a/perf/RenderQueue.java
++++ b/perf/RenderQueue.java
+@@ -88,7 +88,7 @@ public class RenderQueue {
+-        new Thread(this::process).start();
++        new Thread(this::process, "render-queue-worker").start();
+}
+
+diff --git a/i18n/values-ar/strings.xml b/i18n/values-ar/strings.xml
+new file mode 100644
+index 0000000..7a8b9c0
+--- /dev/null
++++ b/i18n/values-ar/strings.xml
+@@ -0,0 +1,5 @@
++<resources>
++    <string name="welcome">مرحبا</string>
++    <string name="goodbye">إلى اللقاء</string>
++    <string name="settings_title">الإعدادات</string>
++</resources>
+
+diff --git a/compat/AndroidManifest.xml b/compat/AndroidManifest.xml
+index ddee55..ffaa66 100644
+--- a/compat/AndroidManifest.xml
++++ b/compat/AndroidManifest.xml
+@@ -3,7 +3,7 @@
+-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="33"/>
++    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34"/>
+     <uses-permission android:name="android.permission.INTERNET"/>
+
+diff --git a/knox/crypto/KeyVault.java b/knox/crypto/KeyVault.java
+index 77ee88..99aa00 100644
+--- a/knox/crypto/KeyVault.java
++++ b/knox/crypto/KeyVault.java
+@@ -120,9 +120,15 @@ public class KeyVault {
+-    private byte[] deriveKey(String pin) {
+-        return MessageDigest.getInstance("SHA-256").digest(pin.getBytes());
+-    }
++    private byte[] deriveKey(String pin, byte[] salt) {
++        // PBKDF2-HMAC-SHA256 으로 강화 — saltedHash 100,000 iterations
++        PBEKeySpec spec = new PBEKeySpec(pin.toCharArray(), salt, 100_000, 256);
++        SecretKeyFactory f = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
++        return f.generateSecret(spec).getEncoded();
++    }

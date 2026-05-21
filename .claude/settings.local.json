@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python main.py --diff ./sample_diff.txt --pr-id PR-2026-001)"
+    ]
+  }
+}
