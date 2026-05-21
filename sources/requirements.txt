@@ -1,0 +1,28 @@
+# OneDay Curriculum v3.1 — 의존성
+
+# 핵심 — CrewAI 멀티에이전트 프레임워크
+crewai>=0.70.0
+crewai-tools>=0.12.0
+
+# LLM 백엔드 — OpenAI (CrewAI 기본 호출)
+openai>=1.40.0
+langchain-openai>=0.2.0
+
+# 데이터 검증 — Pydantic
+pydantic>=2.5.0
+
+# 운영 관찰성 — LangSmith
+langsmith>=0.1.50
+langchain>=0.2.0
+
+# M7 맛보기 — LangGraph (선택)
+langgraph>=0.2.0
+
+# 유틸리티
+python-dotenv>=1.0.0
+requests>=2.31.0
+typing-extensions>=4.9.0
+
+# 개발 도구 (선택)
+pytest>=7.4.0
+black>=23.0.0

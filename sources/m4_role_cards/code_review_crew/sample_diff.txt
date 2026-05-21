@@ -1,0 +1,71 @@
+diff --git a/app/auth/LoginActivity.kt b/app/auth/LoginActivity.kt
+index a1b2c3d..e4f5a6b 100644
+--- a/app/auth/LoginActivity.kt
++++ b/app/auth/LoginActivity.kt
+@@ -12,6 +12,8 @@ class LoginActivity : AppCompatActivity() {
+
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        val apiKey = "sk-1234567890abcdef"   // TODO: move to secure storage
++        val password = "admin123"
+         setContentView(R.layout.activity_login)
+         setupLoginButton()
+     }
+@@ -25,7 +27,15 @@ class LoginActivity : AppCompatActivity() {
+     private fun setupLoginButton() {
+         btnLogin.setOnClickListener {
+             val userId = etUserId.text.toString()
+-            performLogin(userId)
++            // 직접 네트워크 호출 (메인 스레드)
++            val result = networkClient.post("http://api.example.com/login", userId)
++            if (result != null) {
++                Log.d("LoginActivity", "password=$password login success")
++                startMainActivity()
++            }
+         }
+     }
+
+diff --git a/app/ui/ThemeManager.kt b/app/ui/ThemeManager.kt
+index b2c3d4e..f6a7b8c 100644
+--- a/app/ui/ThemeManager.kt
++++ b/app/ui/ThemeManager.kt
+@@ -5,6 +5,7 @@ import android.content.Context
+
+ class ThemeManager(private val context: Context) {
+
++    @RequiresApi(Build.VERSION_CODES.S)  // Android 12+ only
+     fun applyDynamicColor(view: View) {
+         val palette = DynamicColors.getColorSchemeIfAvailable(context)
+         palette?.let {
+@@ -18,4 +19,12 @@ class ThemeManager(private val context: Context) {
+             view.setBackgroundColor(it.primary)
+         }
+     }
++
++    fun loadThemeList(): List<String> {
++        val themes = mutableListOf<String>()
++        for (category in themeCategories) {
++            for (item in category.items) {   // 중첩 루프
++                themes.add(item.name)
++            }
++        }
++        return themes
++    }
+ }
+
+diff --git a/app/network/ApiClient.kt b/app/network/ApiClient.kt
+index c3d4e5f..a8b9c0d 100644
+--- a/app/network/ApiClient.kt
++++ b/app/network/ApiClient.kt
+@@ -3,5 +3,10 @@ package app.network
+
+ class ApiClient {
+
++    // deprecated Android support 라이브러리 사용
++    import android.support.v4.content.ContextCompat
++
++    fun fetchUserData(userId: String): UserData? {
++        Thread.sleep(2000)   // 블로킹 대기
++        return database.query("SELECT * FROM users WHERE id='$userId'")
++    }
+ }

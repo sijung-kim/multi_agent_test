@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/2024-11-05/schema.json",
+  "mcpServers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": [
+        "./crew"
+      ],
+      "description": "프로젝트 crew/ 폴더에 한정된 파일 검색·읽기 권한을 제공"
+    },
+    "github": {
+      "command": "mcp-server-github",
+      "args": [],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
+      },
+      "description": "GitHub Issue·PR·코드 검색 (선택, 추가 설치 필요)"
+    },
+    "slack": {
+      "command": "mcp-server-slack",
+      "args": [],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+      },
+      "description": "Slack 채널 검색·메시지 전송 (선택)"
+    }
+  }
+}
